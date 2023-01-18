@@ -239,7 +239,6 @@ function getCurrentRoundLeadingGames(uint _voteSessionId, uint round) public ret
             voteScore[availableGames[i]] += 1;
         }
     }
-
     uint score = 0;
     uint game = 0;
     uint index = 0;

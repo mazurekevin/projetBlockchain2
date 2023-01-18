@@ -16,6 +16,9 @@ const GOERLI_PRIVATE_KEY = "8310651f853de5abd9ad63f76126c406cc03cfb810c5ba731112
 module.exports = {
   solidity: "0.8.17",
   networks: {
+    hardhat: {
+      allowUnlimitedContractSize: true
+    },
     goerli: {
       url: `https://eth-goerli.alchemyapi.io/v2/${ALCHEMY_API_KEY}`,
       accounts: [`0x${GOERLI_PRIVATE_KEY}`]
