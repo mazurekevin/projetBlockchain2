@@ -111,7 +111,8 @@ contract GameAward is Ownable {
         juryMembers[addr] = false;
         for (uint i = 0; i < juries.length; i++) {
             if (juries[i].walletAddress == addr) {
-                delete juries[i];
+                juries[i] = juries[juries.length - 1];
+                juries.pop();
             }
         }
     }
@@ -203,7 +204,7 @@ contract GameAward is Ownable {
         require(voteSessions[_voteSessionId].started, "The vote session is not started.");
         require(!voteSessions[_voteSessionId].ended, "The vote session is ended.");
         uint currentRound = getCurrentRound(_voteSessionId);
-        require(voteSessionRounds[_voteSessionId][currentRound - 1].availableGames[_gameId] != 0, "The game is not available for this round.");
+        require(voteSessionRounds[_voteSessionId][currentRound - 1].availableGames[_gameId - 1] > 0, "The game is not available for this round.");
         require(!hasVotedThisTurn(_voteSessionId, msg.sender), "You have already voted this turn.");
         voteSessionRoundVotes[voteSessionRounds[_voteSessionId][currentRound - 1].id].push(Vote(msg.sender, _gameId));
     }

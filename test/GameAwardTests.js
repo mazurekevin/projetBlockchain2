@@ -29,13 +29,15 @@ describe("GameAward contract", function () {
     });
 
     it("Should remove a jury member", async function () {
-        const [addr] = await ethers.getSigners();
+        const [addr,addr2] = await ethers.getSigners();
         const {gameAward} = await loadFixture(deployContractFixture);
 
         await gameAward.addJuryMember(addr.address, "name", "pictureUrl");
+        await gameAward.addJuryMember(addr2.address, "name2", "pictureUrl");
         await gameAward.removeJuryMember(addr.address);
 
         const juries = await gameAward.getJuries();
+
         expect(juries.length).to.equal(1);
     });
 
@@ -57,6 +59,30 @@ describe("GameAward contract", function () {
         const session = await gameAward.getVoteSession(sessionId)
 
         expect(sessionId).to.equal(session.id);
+    });
+
+    it("Vote for a game in two round", async function(){
+        const {gameAward} = await loadFixture(deployContractFixture);
+
+
+        await gameAward.addGame("Game2", "PS4", "130€", "jeu", "samedi", "photo");
+        await gameAward.addGame("Game3", "PS4", "130€", "jeu", "samedi", "photo");
+        await gameAward.addGame("Game4", "PS4", "130€", "jeu", "samedi", "photo");
+        const game = await gameAward.games(0);
+        await gameAward.createVoteSession();
+        const lastSession = await gameAward.getLastVoteSessionId();
+        await gameAward.startVoteSession(lastSession);
+        await gameAward.vote(lastSession,game.id);
+        const  voteGameId = await gameAward.getVoteRoundGameIds(lastSession);
+        expect(voteGameId).to.equal(game.id);
+
+        await gameAward.passToNextRound(lastSession);
+        const game3 = await gameAward.games(1);
+        await gameAward.vote(lastSession,game3.id);
+        const  voteGameId2 = await gameAward.getVoteRoundGameIds(lastSession);
+        expect(voteGameId2).to.equal(game3.id);
+
+
     });
 
 
