@@ -13,7 +13,6 @@ describe("GameAward contract", function () {
     }
 
     it("Should return true if caller is owner", async function () {
-        const [owner] = await ethers.getSigners();
         const {gameAward} = await loadFixture(deployContractFixture);
 
         expect(await gameAward.isOwner()).to.equal(true);
@@ -22,15 +21,22 @@ describe("GameAward contract", function () {
     it("Should add a jury member", async function () {
         const [owner] = await ethers.getSigners();
         const {gameAward} = await loadFixture(deployContractFixture);
-        try {
-            await gameAward.addJuryMember(owner.address, "name", "pictureUrl");
-        } catch (e) {
-            console.log(e);
-        } finally {
-            console.log(await gameAward.getJuries());
-        }
+
+        await gameAward.addJuryMember(owner.address, "name", "pictureUrl");
+
         const juries = await gameAward.getJuries();
         expect(juries[0].walletAddress).to.equal(owner.address);
+    });
+
+    it("Should remove a jury member", async function () {
+        const [addr] = await ethers.getSigners();
+        const {gameAward} = await loadFixture(deployContractFixture);
+
+        await gameAward.addJuryMember(addr.address, "name", "pictureUrl");
+        await gameAward.removeJuryMember(addr.address);
+
+        const juries = await gameAward.getJuries();
+        expect(juries.length).to.equal(1);
     });
 
     it("Should add a new game", async function () {
@@ -41,4 +47,22 @@ describe("GameAward contract", function () {
 
         expect(getFirstGame.name).to.equal("Game1");
     });
+
+    it("Should create a new voting session", async function () {
+        const [addr] = await ethers.getSigners();
+        const {gameAward} = await loadFixture(deployContractFixture);
+
+        try {
+            const sessionId = await gameAward.createVoteSession();
+        } catch (e) {
+            console.log(e);
+        } finally {
+            console.log(sessionId);
+        }
+
+
+        expect(await gameAward.getVoteSession(sessionId.id)).to.equal(sessionId.id);
+    });
+
+
 });
