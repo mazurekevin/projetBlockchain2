@@ -28,6 +28,7 @@ struct Game {
 
 uint public gameId;
 Game[] public games;
+uint[] public sessionsIds;
 
 struct VoteSession {
     uint id;
@@ -127,12 +128,15 @@ function getGameIds(Game[] memory gameList) public view returns (uint[] memory) 
     return gameIds;
 }
 
-function createVoteSession() public onlyOwner {
+function createVoteSession() public onlyOwner returns (uint) {
     require(msg.sender == owner(), "Only the contract owner can create vote sessions.");
+    uint sessionid = voteSessionId;
+    sessionsIds.push(sessionid);
     voteSessionRounds[voteSessionId].push(VoteSessionRound(roundId,1, getGameIds(games), 0));
     voteSessions[voteSessionId] = VoteSession(voteSessionId, false, false, roundSessionNumber, 1, block.timestamp, 0);
     roundId++;
     voteSessionId++;
+    return sessionid;
 }
 
 function startVoteSession(uint _voteSessionId) public onlyOwner {
@@ -257,8 +261,15 @@ function getCurrentRoundLeadingGames(uint _voteSessionId, uint round) public ret
     return leadingGames;
 }
 
-function getVoteSessions() public view returns (VoteSession[] memory) {
-    return voteSessions;
-}
+function getVoteSession(uint _voteSessionId) public view returns (VoteSession memory) {
+    return voteSessions[_voteSessionId];
 }
 
+function getVoteSessions() public view returns (VoteSession[] memory) {
+    VoteSession[] memory results = new VoteSession[](sessionsIds.length);
+    for(uint i = 0; i < sessionsIds.length; i++) {
+        results[i] = voteSessions[sessionsIds[i]];
+    }
+    return results;
+}
+}
