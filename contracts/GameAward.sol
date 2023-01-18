@@ -219,12 +219,12 @@ function getCurrentRoundLeadingGames(uint _voteSessionId, uint round) public ret
     uint leadingGamesRange = 1;
     if(round < voteSessions[_voteSessionId].rounds) {
         leadingGamesRange = (voteSessions[_voteSessionId].rounds - round) * 3;
-        if(voteSessionRounds[_voteSessionId][round].availableGames.length < leadingGamesRange){
-            leadingGamesRange = voteSessionRounds[_voteSessionId][round].availableGames.length;
+        if(voteSessionRounds[_voteSessionId][round -1].availableGames.length < leadingGamesRange){
+            leadingGamesRange = voteSessionRounds[_voteSessionId][round -1].availableGames.length;
         }
     }
-    Vote[] memory roundVotes = voteSessionRoundVotes[voteSessionRounds[_voteSessionId][round].id];
-    uint[] memory availableGames = voteSessionRounds[_voteSessionId][round].availableGames;
+    Vote[] memory roundVotes = voteSessionRoundVotes[voteSessionRounds[_voteSessionId][round -1].id];
+    uint[] memory availableGames = voteSessionRounds[_voteSessionId][round -1].availableGames;
     for (uint i = 0; i < availableGames.length; i++) {
         voteScore[availableGames[i]] = 0;
     }
