@@ -2,7 +2,6 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "hardhat/console.sol";
 
 contract GameAward is Ownable {
 
@@ -13,6 +12,8 @@ struct Jury {
 }
 
 Jury[] public juries;
+mapping(address => bool) public juryMembers;
+mapping(address => Jury) public juryMembersData;
 
 struct Game {
     uint id;
@@ -23,27 +24,13 @@ struct Game {
     string release;
     string url;
     address originUserAddress;
-    string pictureUrl;
 }
-uint public gameId = 1;
+
+uint public gameId;
 Game[] public games;
-
-struct GameCategory {
-    uint id;
-    string categoryTitle;
-    uint gameCount;
-}
-
-uint public gameCategoryId = 1;
-mapping(uint => uint) categoryGames;
-GameCategory[] public gameCategories;
-
-mapping(address => bool) public juryMembers;
-mapping(address => Jury) public juryMembersData;
 
 struct VoteSession {
     uint id;
-    string sessionTitle;
     bool started;
     bool ended;
     uint rounds;
@@ -59,19 +46,18 @@ struct VoteSessionRound {
     uint endedAt;
 }
 
-uint public voteSessionId = 1;
-uint public roundId = 1;
-
-VoteSession[] public voteSession;
-
-mapping(uint => VoteSessionRound[]) voteSessionRounds;
-mapping(uint => Vote[]) voteSessionRoundsVote;
-mapping(uint => uint) voteScore;
-
 struct Vote {
     address voter;
     uint gameId;
 }
+
+mapping(uint => VoteSession) public voteSessions;
+mapping(uint => VoteSessionRound[]) voteSessionRounds;
+mapping(uint => Vote[]) voteSessionRoundVotes;
+mapping(uint => uint) voteScore;
+uint public roundSessionNumber;
+uint public voteSessionId;
+uint public roundId;
 
 struct GameScore {
     Game game;
@@ -83,90 +69,23 @@ struct GameScoreRound {
     GameScore[] games;
 }
 
+constructor(uint _roundSessionNumber) {
+    gameId = 1;
+    voteSessionId = 1;
+    roundId = 1;
+    if(_roundSessionNumber > 0) {
+        roundSessionNumber = _roundSessionNumber;
+    } else {
+        roundSessionNumber = 2;
+    }
+}
+
 function isOwner() public view returns (bool) {
     return owner() == msg.sender;
 }
 
-function addJuryMember(address addr) public onlyOwner {
-    require(msg.sender == owner(), "Only the contract owner can add jury members.");
-    require(!juryMembers[addr], "The address is already a jury member.");
-    juryMembers[addr] = true;
-    juryMembersData[msg.sender] = Jury("username", msg.sender, "pictureUrl");
-}
-
-function updateJuryMember(string memory _name, string memory _pictureUrl) public {
-    require(juryMembers[msg.sender], "The address is not a jury member.");
-    juryMembersData[msg.sender].username = _name;
-    juryMembersData[msg.sender].pictureUrl = _pictureUrl;
-}
-
-function removeJuryMember(address addr) public onlyOwner {
-    require(msg.sender == owner(), "Only the contract owner can remove jury members.");
-    require(juryMembers[addr], "The address is not a jury member.");
-    juryMembers[addr] = false;
-    delete juryMembersData[addr];
-}
-
-function addGame(string memory _name, string memory _platform, string memory _price, string memory _description, string memory _release, string memory _url, string memory _pictureUrl) public {
-    require(juryMembers[msg.sender], "Only jury members can add games.");
-    games.push(Game(gameId, _name, _platform, _price, _description, _release, _url, msg.sender, _pictureUrl));
-    gameId++;
-}
-
-function removeGame(uint _id) public {
-    require(juryMembers[msg.sender], "Only jury members can remove games.");
-    require(games[_id].originUserAddress == msg.sender, "Only the game owner can remove the game.");
-    require(games[_id].id == _id, "The game does not exist.");
-    delete games[_id];
-}
-
-function addGameCategory(string memory _categoryTitle) public onlyOwner {
-    require(msg.sender == owner(), "Only the contract owner can add game categories.");
-    gameCategories.push(GameCategory(gameCategoryId, _categoryTitle, 0));
-    gameCategoryId++;
-}
-
-function removeGameCategory(uint _id) public onlyOwner {
-    require(msg.sender == owner(), "Only the contract owner can remove game categories.");
-    require(gameCategories[_id].id != 0, "The category does not exist.");
-    for (uint i = 0; i < games.length; i++) {
-        if(categoryGames[games[i].id] == _id) {
-            delete categoryGames[games[i].id];
-        }
-    }
-    delete gameCategories[_id];
-}
-
-function addGameInCategory(uint _gameId, uint _categoryId) public {
-    require(juryMembers[msg.sender], "Only jury members can add games in categories.");
-    require(gameCategories[_categoryId].id == _categoryId, "The category does not exist.");
-    require(categoryGames[_gameId] == 0, "The game is already registered in this category.");
-    categoryGames[_gameId] = _categoryId;
-    gameCategories[_categoryId].gameCount++;
-}
-
-function removeGameInCategory(uint _gameId, uint _categoryId) public {
-    require(juryMembers[msg.sender], "Only jury members can remove games in categories.");
-    require(gameCategories[_categoryId].id == _categoryId, "The category does not exist.");
-    require(categoryGames[_gameId] != 0, "The game is not registered in this category.");
-    delete categoryGames[_gameId];
-    gameCategories[_categoryId].gameCount--;
-}
-
 function getAllGames() public view returns (Game[] memory) {
     return games;
-}
-
-function getGamesByCategory(uint _categoryId) public view returns (Game[] memory) {
-    Game[] memory gamesByCategory = new Game[](gameCategories[_categoryId].gameCount);
-    uint counter = 0;
-    for (uint i = 0; i < games.length; i++) {
-        if(categoryGames[games[i].id] == _categoryId) {
-            gamesByCategory[counter] = games[i];
-            counter++;
-        }
-    }
-    return gamesByCategory;
 }
 
 function getGameById(uint _gameId) public view returns (Game memory) {
@@ -177,7 +96,30 @@ function getJuries() public view returns (Jury[] memory) {
     return juries;
 }
 
-function getAllGameIds(Game[] memory gameList) public view returns (uint[] memory) {
+function addJuryMember(address addr, string memory _name, string memory _pictureUr) public onlyOwner {
+    require(msg.sender == owner(), "Only the contract owner can add jury members.");
+    require(!juryMembers[addr], "The address is already a jury member.");
+    juryMembers[addr] = true;
+    juries.push(Jury(_name, addr, _pictureUr));
+}
+
+function removeJuryMember(address addr) public onlyOwner {
+    require(msg.sender == owner(), "Only the contract owner can remove jury members.");
+    require(juryMembers[addr], "The address is not a jury member.");
+    juryMembers[addr] = false;
+    for (uint i = 0; i < juries.length; i++) {
+        if (juries[i].walletAddress == addr) {
+            delete juries[i];
+        }
+    }
+}
+
+function addGame(string memory _name, string memory _platform, string memory _price, string memory _description, string memory _release, string memory _url) public {
+    games.push(Game(gameId, _name, _platform, _price, _description, _release, _url, msg.sender));
+    gameId++;
+}
+
+function getGameIds(Game[] memory gameList) public view returns (uint[] memory) {
     uint[] memory gameIds = new uint[](gameList.length);
     for (uint i = 0; i < gameList.length; i++) {
         gameIds[i] = gameList[i].id;
@@ -185,45 +127,103 @@ function getAllGameIds(Game[] memory gameList) public view returns (uint[] memor
     return gameIds;
 }
 
-function createVoteSession(string memory _sessionTitle, uint _rounds) public onlyOwner {
+function createVoteSession() public onlyOwner {
     require(msg.sender == owner(), "Only the contract owner can create vote sessions.");
-    require(_rounds > 0, "A vote need at least one round.");
-
-    voteSessionRounds[voteSessionId].push(VoteSessionRound(roundId,1, getAllGameIds(games), 0));
+    voteSessionRounds[voteSessionId].push(VoteSessionRound(roundId,1, getGameIds(games), 0));
+    voteSessions[voteSessionId] = VoteSession(voteSessionId, false, false, roundSessionNumber, 1, block.timestamp, 0);
     roundId++;
-    voteSession.push(VoteSession(voteSessionId,_sessionTitle, false, false, _rounds, 1, block.timestamp, 0));
     voteSessionId++;
+}
+
+function startVoteSession(uint _voteSessionId) public onlyOwner {
+    require(msg.sender == owner(), "Only the contract owner can start vote sessions.");
+    require(voteSessions[_voteSessionId].id == _voteSessionId, "The vote session does not exist.");
+    require(!voteSessions[_voteSessionId].ended, "The vote session is already ended.");
+    require(!voteSessions[_voteSessionId].started, "The vote session has already started.");
+    voteSessions[_voteSessionId].started = true;
+    voteSessions[_voteSessionId].startAt = block.timestamp;
 }
 
 function passToNextRound(uint _voteSessionId) public onlyOwner {
     require(msg.sender == owner(), "Only the contract owner can pass to the next round.");
-    require(!voteSession[_voteSessionId].ended, "The vote session is ended.");
+    require(voteSessions[_voteSessionId].started, "The vote is not started.");
+    require(!voteSessions[_voteSessionId].ended, "The vote session is ended.");
 
-    if(voteSession[_voteSessionId].currentRound == voteSession[_voteSessionId].rounds -1) {
-        voteSession[_voteSessionId].ended = true;
-        voteSessionRounds[_voteSessionId][voteSession[_voteSessionId].currentRound].endedAt = block.timestamp;
+    uint currentRound = getCurrentRound(_voteSessionId);
+    if(currentRound == voteSessions[_voteSessionId].rounds) {
+        voteSessions[_voteSessionId].ended = true;
+        voteSessionRounds[_voteSessionId][currentRound -1].endedAt = block.timestamp;
     } else {
-        GameScore[] memory leadingGames = getCurrentRoundLeadingGames(_voteSessionId, voteSession[_voteSessionId].currentRound);
+        GameScore[] memory leadingGames = getCurrentRoundLeadingGames(_voteSessionId, currentRound);
         Game[] memory nextRoundGames = new Game[](leadingGames.length);
         for (uint i = 0; i < leadingGames.length; i++) {
             nextRoundGames[i] = leadingGames[i].game;
         }
-        voteSessionRounds[_voteSessionId][voteSession[_voteSessionId].currentRound].endedAt = block.timestamp;
-        voteSession[_voteSessionId].currentRound++;
-        voteSessionRounds[_voteSessionId].push(VoteSessionRound(roundId,voteSession[_voteSessionId].currentRound, getAllGameIds(nextRoundGames), 0));
+        voteSessionRounds[_voteSessionId][currentRound -1].endedAt = block.timestamp;
+        voteSessions[_voteSessionId].currentRound++;
+        voteSessionRounds[_voteSessionId].push(VoteSessionRound(roundId,currentRound, getGameIds(nextRoundGames), 0));
         roundId++;
     }
 }
 
+function getCurrentRound(uint _voteSessionId) public view returns (uint) {
+    return voteSessions[_voteSessionId].currentRound;
+}
+
+function getCurrentRoundVoteGameId(uint _voteSessionId, address _userAddress) public view returns (uint) {
+    uint currentRound = getCurrentRound(_voteSessionId);
+    Vote[] memory roundVotes = voteSessionRoundVotes[voteSessionRounds[_voteSessionId][currentRound -1].id];
+    for(uint i = 0; i < roundVotes.length; i++) {
+        if(roundVotes[i].voter == _userAddress) {
+            return roundVotes[i].gameId;
+        }
+    }
+    return 0;
+}
+
+function hasVotedThisTurn(uint _voteSessionId, address _userAddress) public view returns (bool) {
+    if(getCurrentRoundVoteGameId(_voteSessionId, _userAddress) != 0) {
+        return true;
+    }
+    return false;
+}
+
+function vote(uint _voteSessionId, uint _gameId) public {
+    require(voteSessions[_voteSessionId].started, "The vote session is not started.");
+    require(!voteSessions[_voteSessionId].ended, "The vote session is ended.");
+    uint currentRound = getCurrentRound(_voteSessionId);
+    require(voteSessionRounds[_voteSessionId][currentRound -1].availableGames[_gameId] != 0, "The game is not available for this round.");
+    require(!hasVotedThisTurn(_voteSessionId, msg.sender), "You have already voted this turn.");
+    voteSessionRoundVotes[voteSessionRounds[_voteSessionId][currentRound -1].id].push(Vote(msg.sender, _gameId));
+}
+
+function getVoteRoundGameIds(uint _voteSessionId) public view returns (uint) {
+    return getCurrentRoundVoteGameId(_voteSessionId, msg.sender);
+}
+
+function getGameWinner(uint _voteSessionId) public returns (Game memory) {
+    require(voteSessions[_voteSessionId].ended, "The vote session is not ended.");
+    return getCurrentRoundLeadingGames(_voteSessionId, voteSessions[_voteSessionId].rounds)[0].game;
+}
+
+function getRoundsResults(uint _voteSessionId) public returns (GameScoreRound[] memory) {
+    require(voteSessions[_voteSessionId].ended, "The vote session is not ended.");
+    GameScoreRound[] memory results = new GameScoreRound[](voteSessions[_voteSessionId].rounds);
+    for(uint i = 0; i < voteSessions[_voteSessionId].rounds; i++) {
+        results[i] = GameScoreRound(i, getCurrentRoundLeadingGames(_voteSessionId, i + 1));
+    }
+    return results;
+}
+
 function getCurrentRoundLeadingGames(uint _voteSessionId, uint round) public returns (GameScore[] memory) {
     uint leadingGamesRange = 1;
-    if(round < voteSession[_voteSessionId].rounds - 1) {
-        leadingGamesRange = (voteSession[_voteSessionId].rounds - round -1) * 3;
+    if(round < voteSessions[_voteSessionId].rounds) {
+        leadingGamesRange = (voteSessions[_voteSessionId].rounds - round) * 3;
         if(voteSessionRounds[_voteSessionId][round].availableGames.length < leadingGamesRange){
             leadingGamesRange = voteSessionRounds[_voteSessionId][round].availableGames.length;
         }
     }
-    Vote[] memory roundVotes = voteSessionRoundsVote[voteSessionRounds[_voteSessionId][round].id];
+    Vote[] memory roundVotes = voteSessionRoundVotes[voteSessionRounds[_voteSessionId][round].id];
     uint[] memory availableGames = voteSessionRounds[_voteSessionId][round].availableGames;
     for (uint i = 0; i < availableGames.length; i++) {
         voteScore[availableGames[i]] = 0;
@@ -257,48 +257,5 @@ function getCurrentRoundLeadingGames(uint _voteSessionId, uint round) public ret
     return leadingGames;
 }
 
-function getCurrentRoundVoteGameId(uint _voteSessionId, address _userAddress) public view returns (uint) {
-    Vote[] memory roundVotes = voteSessionRoundsVote[voteSessionRounds[_voteSessionId][voteSession[_voteSessionId].currentRound].id];
-    for(uint i = 0; i < roundVotes.length; i++) {
-        if(roundVotes[i].voter == _userAddress) {
-            return roundVotes[i].gameId;
-        }
-    }
-    return 0;
 }
 
-function hasVotedThisTurn(uint _voteSessionId, address _userAddress) public view returns (bool) {
-    if(getCurrentRoundVoteGameId(_voteSessionId, _userAddress) != 0) {
-        return true;
-    }
-    return false;
-}
-
-function vote(uint _voteSessionId, uint _gameId) public {
-    require(voteSession[_voteSessionId].started, "The vote session is not started.");
-    require(!voteSession[_voteSessionId].ended, "The vote session is ended.");
-    require(voteSessionRounds[_voteSessionId][voteSession[_voteSessionId].currentRound].availableGames.length > 0, "The vote session is ended.");
-    require(voteSessionRounds[_voteSessionId][voteSession[_voteSessionId].currentRound].availableGames[_gameId] != 0, "The game is not available for this round.");
-    require(hasVotedThisTurn(_voteSessionId, msg.sender), "You have already voted this turn.");
-    voteSessionRoundsVote[voteSessionRounds[_voteSessionId][voteSession[_voteSessionId].currentRound].id].push(Vote(msg.sender, _gameId));
-}
-
-function getVoteRoundGameIds(uint _voteSessionId) public view returns (uint) {
-    return getCurrentRoundVoteGameId(_voteSessionId, msg.sender);
-}
-
-function getGameWinner(uint _voteSessionId) public returns (Game memory) {
-    require(voteSession[_voteSessionId].ended, "The vote session is not ended.");
-    return getCurrentRoundLeadingGames(_voteSessionId, voteSession[_voteSessionId].currentRound)[0].game;
-}
-
-function getRoundResults(uint _voteSessionId) public returns (GameScoreRound[] memory) {
-    require(voteSession[_voteSessionId].ended, "The vote session is not ended.");
-
-    GameScoreRound[] memory results = new GameScoreRound[](voteSession[_voteSessionId].rounds);
-    for(uint i = 0; i < voteSession[_voteSessionId].rounds; i++) {
-        results[i] = GameScoreRound(i, getCurrentRoundLeadingGames(_voteSessionId, i + 1));
-    }
-    return results;
-}
-}
