@@ -52,16 +52,11 @@ describe("GameAward contract", function () {
         const [addr] = await ethers.getSigners();
         const {gameAward} = await loadFixture(deployContractFixture);
 
-        try {
-            const sessionId = await gameAward.createVoteSession();
-        } catch (e) {
-            console.log(e);
-        } finally {
-            console.log(sessionId);
-        }
+        await gameAward.createVoteSession();
+        const sessionId = await gameAward.getLastVoteSessionId();
+        const session = await gameAward.getVoteSession(sessionId)
 
-
-        expect(await gameAward.getVoteSession(sessionId.id)).to.equal(sessionId.id);
+        expect(sessionId).to.equal(session.id);
     });
 
 

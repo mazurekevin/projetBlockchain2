@@ -129,15 +129,21 @@ contract GameAward is Ownable {
         return gameIds;
     }
 
-    function createVoteSession() public onlyOwner returns (uint) {
+    function createVoteSession() public onlyOwner {
         require(msg.sender == owner(), "Only the contract owner can create vote sessions.");
-        uint sessionid = voteSessionId;
-        sessionsIds.push(sessionid);
+        sessionsIds.push(voteSessionId);
         voteSessionRounds[voteSessionId].push(VoteSessionRound(roundId, 1, getGameIds(games), 0));
-        voteSessions[voteSessionId] = VoteSession(sessionid, false, false, roundSessionNumber, 1, block.timestamp, 0);
+        voteSessions[voteSessionId] = VoteSession(voteSessionId, false, false, roundSessionNumber, 1, block.timestamp, 0);
         roundId++;
         voteSessionId++;
-        return uint(14);
+    }
+
+    function getLastVoteSessionId() public view returns (uint) {
+        return sessionsIds[sessionsIds.length - 1];
+    }
+
+    function getCurrentVoteSessionId() public view returns (uint) {
+        return voteSessionId;
     }
 
     function startVoteSession(uint _voteSessionId) public onlyOwner {
