@@ -257,5 +257,8 @@ function getCurrentRoundLeadingGames(uint _voteSessionId, uint round) public ret
     return leadingGames;
 }
 
+function getVoteSessions() public view returns (VoteSession[] memory) {
+    return voteSessions;
+}
 }
 
