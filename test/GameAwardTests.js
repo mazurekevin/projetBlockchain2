@@ -81,9 +81,28 @@ describe("GameAward contract", function () {
         await gameAward.vote(lastSession,game3.id);
         const  voteGameId2 = await gameAward.getVoteRoundGameIds(lastSession);
         expect(voteGameId2).to.equal(game3.id);
-
-
     });
 
+    it("The vote from a jury member should be heavier", async function(){
+        const [juryMember] = await ethers.getSigners();
+        const {gameAward} = await loadFixture(deployContractFixture);
+
+        await gameAward.addGame("Game2", "PS4", "130€", "jeu", "samedi", "photo");
+        await gameAward.addGame("Game3", "PS4", "130€", "jeu", "samedi", "photo");
+        await gameAward.addJuryMember(juryMember.address, "name", "pictureUrl");
+
+        await gameAward.createVoteSession();
+        const lastSession = await gameAward.getLastVoteSessionId();
+        await gameAward.startVoteSession(lastSession);
+
+        const game = await gameAward.games(0);
+        await gameAward.vote(lastSession,game.id);
+
+        const currentRound = await gameAward.getCurrentRound(lastSession);
+        const leadingGames = await gameAward.getCurrentRoundLeadingGames(lastSession, currentRound);
+        console.log(leadingGames);
+
+        expect(leadingGames[0].score).to.equal(30);
+    });
 
 });

@@ -56,7 +56,6 @@ contract GameAward is Ownable {
     mapping(uint => VoteSession) public voteSessions;
     mapping(uint => VoteSessionRound[]) voteSessionRounds;
     mapping(uint => Vote[]) voteSessionRoundVotes;
-    mapping(uint => uint) voteScore;
     uint public roundSessionNumber;
     uint public voteSessionId;
     uint public roundId;
@@ -227,7 +226,7 @@ contract GameAward is Ownable {
         return results;
     }
 
-    function getCurrentRoundLeadingGames(uint _voteSessionId, uint round) public returns (GameScore[] memory) {
+    function getCurrentRoundLeadingGames(uint _voteSessionId, uint round) public view returns (GameScore[] memory) {
         uint leadingGamesRange = 1;
         if (round < voteSessions[_voteSessionId].rounds) {
             leadingGamesRange = (voteSessions[_voteSessionId].rounds - round) * 3;
@@ -237,14 +236,19 @@ contract GameAward is Ownable {
         }
         Vote[] memory roundVotes = voteSessionRoundVotes[voteSessionRounds[_voteSessionId][round - 1].id];
         uint[] memory availableGames = voteSessionRounds[_voteSessionId][round - 1].availableGames;
+        uint[] memory voteScore = new uint[](voteSessionRounds[_voteSessionId][round - 1].availableGames.length);
         for (uint i = 0; i < availableGames.length; i++) {
-            voteScore[availableGames[i]] = 0;
+            voteScore[i] = 0;
         }
         for (uint i = 0; i < roundVotes.length; i++) {
-            if (juryMembers[roundVotes[i].voter]) {
-                voteScore[availableGames[i]] += 30;
-            } else {
-                voteScore[availableGames[i]] += 1;
+            for (uint j = 0; j < availableGames.length; j++) {
+                if (roundVotes[i].gameId == availableGames[j]) {
+                    if (juryMembers[roundVotes[i].voter] == true) {
+                        voteScore[j] += 30;
+                    } else {
+                        voteScore[j]++;
+                    }
+                }
             }
         }
         uint score = 0;
@@ -253,8 +257,8 @@ contract GameAward is Ownable {
         GameScore[] memory leadingGames = new GameScore[](leadingGamesRange);
         for (uint i = 0; i < leadingGamesRange; i++) {
             for (uint j = 0; j < availableGames.length; j++) {
-                if (voteScore[availableGames[j]] > score) {
-                    score = voteScore[availableGames[j]];
+                if (voteScore[j] > score) {
+                    score = voteScore[j];
                     game = availableGames[j];
                     index = j;
                 }
