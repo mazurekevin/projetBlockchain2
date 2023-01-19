@@ -89,6 +89,7 @@ describe("GameAward contract", function () {
 
         await gameAward.addGame("Game2", "PS4", "130€", "jeu", "samedi", "photo");
         await gameAward.addGame("Game3", "PS4", "130€", "jeu", "samedi", "photo");
+        await gameAward.addGame("Game4", "PS4", "130€", "jeu", "samedi", "photo");
         await gameAward.addJuryMember(juryMember.address, "name", "pictureUrl");
 
         await gameAward.createVoteSession();
@@ -99,6 +100,7 @@ describe("GameAward contract", function () {
         await gameAward.vote(lastSession,game.id);
 
         const currentRound = await gameAward.getCurrentRound(lastSession);
+        console.log(currentRound);
         const leadingGames = await gameAward.getCurrentRoundLeadingGames(lastSession, currentRound);
         console.log(leadingGames);
 

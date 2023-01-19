@@ -240,6 +240,7 @@ contract GameAward is Ownable {
         for (uint i = 0; i < availableGames.length; i++) {
             voteScore[i] = 0;
         }
+
         for (uint i = 0; i < roundVotes.length; i++) {
             for (uint j = 0; j < availableGames.length; j++) {
                 if (roundVotes[i].gameId == availableGames[j]) {
@@ -263,15 +264,29 @@ contract GameAward is Ownable {
                     index = j;
                 }
             }
-            leadingGames[i] = GameScore(games[game], score);
-            delete availableGames[index];
+            leadingGames[i].game = games[game];
+            leadingGames[i].score = score;
+
+            uint[] memory voteScoreNext = new uint[](availableGames.length - 1);
+            uint[] memory availableGamesNext = new uint[](availableGames.length - 1);
+            for(uint k = 0; k < availableGames.length; k++) {
+                    if(k < index) {
+                        availableGamesNext[k] = availableGames[k];
+                        voteScoreNext[k] = voteScore[k];
+                    }
+                    if(k > index && (k-1) >= 0) {
+                        availableGamesNext[k - 1] = availableGames[k];
+                        voteScoreNext[k -1] = voteScore[k];
+                    }
+            }
+            availableGames = availableGamesNext;
+            voteScore = voteScoreNext;
             score = 0;
             game = 0;
             index = 0;
         }
         return leadingGames;
     }
-
     function getVoteSession(uint _voteSessionId) public view returns (VoteSession memory) {
         return voteSessions[_voteSessionId];
     }
